@@ -41,7 +41,12 @@ class GradientDescent
     size_t itsIterationCount;
 
     // Return the delta vector for theta after evaluating x against the
-    // current theta to estimate y.
+    // current theta to estimate y.  This is the "cost function" J(theta)
+    // where itsTheta.dot(x) is the hypothesis h(x) for a linear regression
+    // model with vector theta.
+    //
+    // Some terms are commuted because C++'s OO dispatch works only if the
+    // matrix (this) factor is on the left side of expressions.
     //
     cv::Mat delta(void)
     {
@@ -86,25 +91,6 @@ class GradientDescent
         return result;
     }
 
-    // Compute a scaling factor for each dimension (column) of itsXs and
-    // return it as a column vector after scaling itsXs by the result.
-    //
-    static cv::Mat scaleItsXs(cv::Mat &itsXs)
-    {
-        static const double epsilon = std::numeric_limits<float>::epsilon();
-        cv::Mat result = cv::Mat::ones(1, itsXs.cols, CV_32F);
-        for (int i = 0; i < result.cols; ++i) {
-            cv::Mat_<float> x = itsXs.col(i);
-            double maximum, minimum;
-            cv::minMaxLoc(x, &minimum, &maximum);
-            const double difference = maximum - minimum;
-            const double scale = difference > epsilon ? difference : 1.0;
-            result.col(i) = scale;
-            x.convertTo(x, -1, 1.0 / scale, 0);
-        }
-        return result;
-    }
-
     // Just return a copy of y.
     //
     static cv::Mat makeItsYs(const cv::Mat &theYs)
@@ -114,22 +100,42 @@ class GradientDescent
         return result;
     }
 
+    // Compute a scaling factor for each dimension (column) of itsXs and
+    // return it as a diagonal matrix after multiplying itsXs by the
+    // result.
+    //
+    static cv::Mat scaleItsXs(cv::Mat &itsXs)
+    {
+        static const double epsilon = std::numeric_limits<float>::epsilon();
+        cv::Mat result = cv::Mat::zeros(itsXs.cols, itsXs.cols, CV_32F);
+        for (int i = 0; i < result.cols; ++i) {
+            cv::Mat_<float> x = itsXs.col(i);
+            double maximum, minimum;
+            cv::minMaxLoc(x, &minimum, &maximum);
+            const double difference = maximum - minimum;
+            const double scale = difference > epsilon ? difference : 1.0;
+            result.at<float>(i, i) = 1.0 / scale;
+        }
+        itsXs *= result;
+        return result;
+    }
+
 public:
 
-    // Return the theta resulting from n descents.
+    // Return the scaled theta resulting from n descents.
     //
-    const cv::Mat &theta(int n)
+    const cv::Mat theta(int n)
     {
         if (n > itsIterationCount) {
             size_t rest = n - itsIterationCount;
             while(rest--) descend();
         }
-        return itsTheta;
+        return itsTheta * itsScales;
     }
 
-    // Return the Theta vector after meeting tc.
+    // Return the scaled Theta vector after meeting tc.
     //
-    const cv::Mat &operator()(const cv::TermCriteria &tc)
+    const cv::Mat operator()(const cv::TermCriteria &tc)
     {
         const int useCount = tc.type & cv::TermCriteria::COUNT;
         const int useEpsilon = tc.type & cv::TermCriteria::EPS;
@@ -145,7 +151,7 @@ public:
         } else if (useCount) {
             theta(tc.maxCount);
         }
-        return itsTheta;
+        return itsScales * itsTheta;
     }
 
     // Return the number of iterations this has run.
