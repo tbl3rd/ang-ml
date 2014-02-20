@@ -183,10 +183,17 @@ public:
         cv::Mat unscaled = itsXs * itsScales.inv();
         DUMP(GradientDescent, unscaled);
         DUMP(GradientDescent, theXs);
-        cv::Mat x = cv::Mat::ones(theXs.rows, 1, CV_32F);
-        cv::hconcat(x, theXs, x);
+        cv::Mat x = cv::Mat::ones(theXs.rows, 3, CV_32F);
+        DUMP(GradientDescent, x.colRange(1, 3));
+        theXs.copyTo(x.colRange(1, 3));
+        // cv::hconcat(x, theXs, x);
+        DUMP(GradientDescent, x);
         DUMP(GradientDescent, x - unscaled);
         DUMP(GradientDescent, cv::norm(x, unscaled));
+        cv::Mat nz = x - unscaled;
+        const double scaledNorm
+            = cv::norm(x, unscaled) * cv::countNonZero(nz) / nz.total();
+        DUMP(GradientDescent, scaledNorm);
     }
 };
 
