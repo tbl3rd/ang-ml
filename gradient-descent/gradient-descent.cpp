@@ -9,6 +9,8 @@
 //
 // http://openclassroom.stanford.edu/MainFolder/DocumentPage.php?course=MachineLearning&doc=exercises/ex2/ex2.html
 
+#define DUMP(L, X) std::cerr << #L ": " #X " == " << X << std::endl;
+
 
 static void showUsage(const char *av0)
 {
@@ -60,9 +62,9 @@ class GradientDescent
         ++itsIterationCount;
     }
 
-    // Return a nx2 matrix of X vectors with X[0] == 1.
+    // Return a m*2 matrix of X vectors with X[0] == 1.
     //
-    static cv::Mat makeXs(const std::vector<float> &xv)
+    static cv::Mat makeItsXs(const std::vector<float> &xv)
     {
         cv::Mat_<float> result = cv::Mat::ones(xv.size(), 2, CV_32F);
         for (int i = 0; i < xv.size(); ++i) result(i, 1) = xv[i];
@@ -125,12 +127,15 @@ public:
                     const std::vector<float> &xv,
                     const std::vector<float> &yv)
         : itsAlpha(alpha)
-        , itsXs(makeXs(xv))
+        , itsXs(makeItsXs(xv))
         , itsYs(yv)
         , itsPriorTheta(cv::Mat::zeros(1, 2, CV_32F))
         , itsTheta(cv::Mat::zeros(1, 2, CV_32F))
         , itsIterationCount(0)
-    {}
+    {
+        DUMP(GradientDescent, itsYs.size());
+        DUMP(GradientDescent, itsXs.size());
+    }
 };
 
 

@@ -170,18 +170,36 @@ public:
         , itsTheta(cv::Mat::zeros(1, itsXs.cols, CV_32F))
         , itsIterationCount(0)
     {
-        DUMP(GradientDescent, itsYs.rows);
+        DUMP(GradientDescent, itsYs.size());
         DUMP(GradientDescent, itsYs);
-        DUMP(GradientDescent, itsXs.rows);
+        DUMP(GradientDescent, itsXs.size());
         DUMP(GradientDescent, itsXs);
-        DUMP(GradientDescent, itsScales.rows);
+        DUMP(GradientDescent, itsTheta.size());
+        DUMP(GradientDescent, itsTheta);
+        DUMP(GradientDescent, itsScales.size());
         DUMP(GradientDescent, itsScales);
+        DUMP(GradientDescent, itsScales.diag());
+        DUMP(GradientDescent, itsScales.inv());
+        cv::Mat unscaled = itsXs * itsScales.inv();
+        DUMP(GradientDescent, unscaled);
+        DUMP(GradientDescent, theXs);
+        cv::Mat x = cv::Mat::ones(theXs.rows, 1, CV_32F);
+        cv::hconcat(x, theXs, x);
+        DUMP(GradientDescent, x - unscaled);
+        DUMP(GradientDescent, cv::norm(x, unscaled));
     }
 };
 
 
 int main(int ac, const char *av[])
 {
+    static const cv::Vec3f zeros;
+    DUMP(main, zeros);
+    static int z[] = { 1, 2, 3, 4, 5, 6, 7, 8};
+    static const size_t count = sizeof z / sizeof z[0];
+    static const cv::Mat zints(2, 4, CV_32S, z);
+    DUMP(main, zints);
+    DUMP(main, zints.t());
     if (ac == 3) {
         std::ifstream xis(av[1]), yis(av[2]);
         float y; std::vector<float> yv; while (yis >> y) yv.push_back(y);
