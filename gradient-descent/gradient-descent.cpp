@@ -32,39 +32,25 @@ class GradientDescent
 {
     const float itsAlpha;
     const cv::Mat itsXs;
-    const cv::Mat itsYs;
+    const cv::Mat itsY;
     cv::Mat itsPriorTheta;
     cv::Mat itsTheta;
     size_t itsIterationCount;
-
-    // Return the delta vector for theta after evaluating x against the
-    // current theta to estimate y.
-    //
-    cv::Mat delta(void)
-    {
-        const int m = itsYs.rows;
-        cv::Mat sum = cv::Mat::zeros(1, 2, CV_32F);
-        for (int i = 0; i < m; ++i) {
-            const cv::Mat x = itsXs.row(i);
-            const float y = itsYs.at<float>(i);
-            const float h = itsTheta.dot(x);
-            sum += x * (h - y);
-        }
-        return sum / m;
-    }
 
     // Update itsTheta by descending once along the steepest gradient.
     //
     void descend(void)
     {
         itsTheta.copyTo(itsPriorTheta);
-        itsTheta = itsTheta - (delta() * itsAlpha);
+        const cv::Mat delta
+            = itsX.t() * (itsX * itsTheta - itsY) / itsY.rows;
+        itsTheta = itsTheta - (delta * itsAlpha);
         ++itsIterationCount;
     }
 
     // Return a m*2 matrix of X vectors with X[0] == 1.
     //
-    static cv::Mat makeItsXs(const std::vector<float> &xv)
+    static cv::Mat makeItsX(const std::vector<float> &xv)
     {
         cv::Mat_<float> result = cv::Mat::ones(xv.size(), 2, CV_32F);
         for (int i = 0; i < xv.size(); ++i) result(i, 1) = xv[i];
@@ -127,14 +113,15 @@ public:
                     const std::vector<float> &xv,
                     const std::vector<float> &yv)
         : itsAlpha(alpha)
-        , itsXs(makeItsXs(xv))
-        , itsYs(yv)
-        , itsPriorTheta(cv::Mat::zeros(1, 2, CV_32F))
-        , itsTheta(cv::Mat::zeros(1, 2, CV_32F))
+        , itsX(makeItsX(xv))
+        , itsY(yv)
+        , itsPriorTheta(cv::Mat::zeros(2, 1, CV_32F))
+        , itsTheta(cv::Mat::zeros(2, 1, CV_32F))
         , itsIterationCount(0)
     {
-        DUMP(GradientDescent, itsYs.size());
-        DUMP(GradientDescent, itsXs.size());
+        DUMP(GradientDescent, itsY.size());
+        DUMP(GradientDescent, itsX.size());
+        DUMP(GradientDescent, itsTheta.size());
     }
 };
 
