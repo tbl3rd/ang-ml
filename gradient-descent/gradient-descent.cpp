@@ -119,9 +119,9 @@ public:
         , itsTheta(cv::Mat::zeros(2, 1, CV_32F))
         , itsIterationCount(0)
     {
-        DUMP(GradientDescent, itsY.size());
-        DUMP(GradientDescent, itsX.size());
-        DUMP(GradientDescent, itsTheta.size());
+        // DUMP(GradientDescent, itsY.size());
+        // DUMP(GradientDescent, itsX.size());
+        // DUMP(GradientDescent, itsTheta.size());
     }
 };
 
