@@ -35,7 +35,7 @@ static void showUsage(const char *av0)
 //
 class NormalizedLinearRegression
 {
-    cv::Mat itsSolution;
+    cv::Mat itsTheta;
     const cv::Mat itsX;
     const cv::Mat itsY;
 
@@ -54,30 +54,30 @@ public:
     //
     float hypothesis(const cv::Mat &x) {
         const cv::Mat shifted = makeItsX(x.t());
-        return itsSolution.dot(shifted.t());
+        return itsTheta.dot(shifted.t());
     }
 
-    // Return the coefficients resulting from the normal solution.  Use
-    // DECOMP_SVD to preserve the 1.0 component.  DECOMP_CHOLESKY and
-    // DECOMP_LU both lose some precision.
+    // Return the coefficients resulting from the normal solution.
     //
-    // This is just an optimized coding of the more explicit code below.
+    // This is just an optimized coding of the more explicit code below,
     //            const cv::Mat xTx = itsX.t() * itsX;
-    //            itsSolution = xTx.inv() * itsX.t() * itsY;
+    //            itsTheta = xTx.inv() * itsX.t() * itsY;
+    //
+    // ... which is an open coding of the following ...
+    //        static const bool transposeLeft = true;
+    //            cv::Mat xTxI; cv::mulTransposed(itsX, xTxI, transposeLeft);
+    //            cv::invert(xTxI, xTxI, cv::DECOMP_SVD);
     //
     const cv::Mat &operator()(void)
     {
-        static const bool transposeLeft = true;
-        if (itsSolution.empty()) {
-            cv::Mat xTxI; cv::mulTransposed(itsX, xTxI, transposeLeft);
-            cv::invert(xTxI, xTxI, cv::DECOMP_SVD);
-            itsSolution = xTxI * itsX.t() * itsY;
+        if (itsTheta.empty()) {
+            cv::solve(itsX, itsY, itsTheta, cv::DECOMP_NORMAL);
         }
-        return itsSolution;
+        return itsTheta;
     }
 
     NormalizedLinearRegression(const cv::Mat &theXs, const cv::Mat &theYs)
-        : itsSolution()
+        : itsTheta()
         , itsX(makeItsX(theXs))
         , itsY(theYs.clone())
     {}
