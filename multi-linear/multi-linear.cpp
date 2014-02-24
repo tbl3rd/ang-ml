@@ -16,7 +16,7 @@
 
 // A test vector representing a 1650 square foot, 3-bedroom house.
 //
-static const cv::Mat_<double> testX(cv::Vec3d(1.0, 1650.0, 3.0));
+static const cv::Mat_<float> testX(cv::Vec3f(1.0, 1650.0, 3.0));
 
 
 static void showUsage(const char *av0)
@@ -43,19 +43,16 @@ class NormalizedLinearRegression
     //
     static cv::Mat makeItsX(const cv::Mat &theXs)
     {
-        cv::Mat result = cv::Mat::ones(theXs.rows, 1 + theXs.cols, CV_64F);
+        cv::Mat result = cv::Mat::ones(theXs.rows, 1 + theXs.cols, CV_32FC1);
         theXs.colRange(0, theXs.cols).copyTo(result.colRange(1, result.cols));
         return result;
     }
 
 public:
 
-    double hypothesis(const cv::Mat &x)
-    {
-        // DUMP(hypothesis, itsSolution);
-        // DUMP(hypothesis, x);
-        return itsSolution.dot(x);
-    }
+    // Return the result of applying this solution to x.
+    //
+    float hypothesis(const cv::Mat &x) { return itsSolution.dot(x); }
 
     // Return the coefficients resulting from the normal solution.
     //
@@ -82,7 +79,7 @@ public:
 //
 class GradientDescent
 {
-    const double itsAlpha;
+    const float itsAlpha;
     cv::Mat itsX;
     const cv::Mat itsY;
     cv::Mat itsMean;
@@ -117,23 +114,21 @@ class GradientDescent
     //
     static cv::Mat makeItsX(const cv::Mat &theXs)
     {
-        cv::Mat result = cv::Mat::ones(theXs.rows, 1 + theXs.cols, CV_64F);
+        cv::Mat result = cv::Mat::ones(theXs.rows, 1 + theXs.cols, CV_32FC1);
         theXs.colRange(0, theXs.cols).copyTo(result.colRange(1, result.cols));
         return result;
     }
 
-    // Return the vector scaled from the vector x.
+    // Return the vector scaled from the vector x by itsStdDevInv and
+    // itsMean calculated from the distribution of all itsX.
     //
     cv::Mat scale(const cv::Mat &x) { return itsStdDevInv * (x - itsMean); }
 
 public:
 
-    double hypothesis(const cv::Mat &x)
-    {
-        // DUMP(hypothesis, itsTheta);
-        // DUMP(hypothesis, x);
-        return itsTheta.dot(scale(x));
-    }
+    // Return the result of applying the current solution to x.
+    //
+    float hypothesis(const cv::Mat &x) { return itsTheta.dot(scale(x)); }
 
     // Return the theta resulting from n descents.
     //
@@ -172,25 +167,26 @@ public:
     size_t count(void) { return itsIterationCount; }
 
     // Initialize gradient descent with learning rate alpha, feature
-    // vectors theXs and result vectors theYs.  Start with theta [0,...].
+    // vectors theXs and result vectors theYs.  Scale theXs and start with
+    // theta [0,...].
     //
-    GradientDescent(double alpha, const cv::Mat &theXs, const cv::Mat &theYs)
+    GradientDescent(float alpha, const cv::Mat &theXs, const cv::Mat &theYs)
         : itsAlpha(alpha)
         , itsX(makeItsX(theXs))
         , itsY(theYs.clone())
-        , itsMean(cv::Mat::zeros(itsX.cols, 1, CV_64F))
-        , itsStdDevInv(cv::Mat::zeros(itsX.cols, itsX.cols, CV_64F))
-        , itsPriorTheta(cv::Mat::zeros(itsX.cols, 1, CV_64F))
-        , itsTheta(cv::Mat::zeros(itsX.cols, 1, CV_64F))
+        , itsMean(cv::Mat::zeros(itsX.cols, 1, CV_32FC1))
+        , itsStdDevInv(cv::Mat::zeros(itsX.cols, itsX.cols, CV_32FC1))
+        , itsPriorTheta(cv::Mat::zeros(itsX.cols, 1, CV_32FC1))
+        , itsTheta(cv::Mat::zeros(itsX.cols, 1, CV_32FC1))
         , itsIterationCount(0)
     {
-        itsMean.at<double>(0, 0) = 0.0;
-        itsStdDevInv.at<double>(0, 0) = 1.0;
+        itsMean.at<float>(0, 0) = 0.0;
+        itsStdDevInv.at<float>(0, 0) = 1.0;
         for (int i = 1; i < itsX.cols; ++i) {
             cv::Scalar mean, dev;
             cv::meanStdDev(itsX.col(i), mean, dev);
-            itsMean.at<double>(0, i) = mean.val[0];
-            itsStdDevInv.at<double>(i, i) = 1.0 / dev.val[0];
+            itsMean.at<float>(0, i) = mean.val[0];
+            itsStdDevInv.at<float>(i, i) = 1.0 / dev.val[0];
         }
         for (int i = 0; i < itsX.rows; ++i) {
             const cv::Mat scaled = scale(itsX.row(i).t()).t();
@@ -202,12 +198,13 @@ public:
 
 // Show on os the resulting equation with coefficients theta.
 //
-static void showResult(std::ostream &os, const cv::Mat &theta)
+static void showResult(std::ostream &os, const char *label,
+                       const cv::Mat &theta)
 {
-    os << "y = " << std::fixed << std::setprecision(4)
-       << theta.at<double>(0, 0);
+    os << label << ": y = " << std::fixed << std::setprecision(4)
+       << theta.at<float>(0, 0);
     for (int i = 1; i < theta.rows; ++i) {
-        double t = theta.at<double>(i, 0);
+        float t = theta.at<float>(i, 0);
         const char *sign = " + ";
         if (t < 0) {
             sign = " - ";
@@ -222,25 +219,24 @@ static void showResult(std::ostream &os, const cv::Mat &theta)
 // Report on os gradient descent on alpha, xv, and yv until some
 // termination criteria are met.
 //
-static void withTermCriteria(std::ostream &os, double alpha,
+static void withTermCriteria(std::ostream &os, float alpha,
                              const cv::Mat &xs, const cv::Mat &ys)
 {
     static const int criteria
         = cv::TermCriteria::COUNT | cv::TermCriteria::EPS;
-    static const double epsilon = 0.0000000000005;
-    static const int iterations = 100;
+    static const double epsilon = 0.000000000001;
+    static const int iterations = 1000;
     static const cv::TermCriteria tc(criteria, iterations, epsilon);
-    os << std::endl << "Now use TermCriteria: "
+    os << std::endl << "TermCriteria: "
        << tc.maxCount << " iterations or an epsilon of "
        << std::scientific << tc.epsilon
        << std::endl;
     GradientDescent gd(alpha, xs, ys);
     const cv::Mat theta = gd(tc);
-    os << "TermCriteria met after " << gd.count() << " iterations."
-       << std::endl << std::endl;
-    showResult(os, theta);
-    const double gdHypo = gd.hypothesis(testX);
-    DUMP(main, gdHypo);
+    os << "TermCriteria at alpha " << alpha
+       << " met after " << gd.count() << " iterations." << std::endl;
+    showResult(os, "Scaled GradientDescent", theta);
+    DUMP(withTermCriteria, gd.hypothesis(testX));
 }
 
 
@@ -248,20 +244,20 @@ int main(int ac, const char *av[])
 {
     if (ac == 3) {
         std::ifstream xis(av[1]), yis(av[2]);
-        double y; std::vector<double> yv; while (yis >> y) yv.push_back(y);
-        cv::Mat_<double> theYs(yv);
-        cv::Mat_<double> theXs(theYs.rows, 2, CV_64F);
+        float y; std::vector<float> yv; while (yis >> y) yv.push_back(y);
+        cv::Mat_<float> theYs(yv);
+        cv::Mat_<float> theXs(theYs.rows, 2, CV_32FC1);
         for (int i = 0; i < yv.size(); ++i) xis >> theXs(i, 0) >> theXs(i, 1);
-        static const double alpha = 1.0;
-        GradientDescent gd(alpha, theXs, theYs);
-        const cv::Mat theta1 = gd.theta(1);
-        DUMP(main, theta1);
-        withTermCriteria(std::cout, alpha, theXs, theYs);
         NormalizedLinearRegression normal(theXs, theYs);
-        showResult(std::cout, normal());
+        std::cout << std::endl;
+        showResult(std::cout, "NormalizedLinearRegression", normal());
         DUMP(main, testX);
-        const double normalHypo = normal.hypothesis(testX);
-        DUMP(main, normalHypo);
+        DUMP(main, normal.hypothesis(testX));
+        static const float alpha[] = { 0.1, 0.3, 0.5, 0.8, 1.0, 1.3, 1.5 };
+        static const int alphaCount = sizeof alpha / sizeof alpha[0];
+        for (int i = 0; i < alphaCount; ++i) {
+            withTermCriteria(std::cout, alpha[i], theXs, theYs);
+        }
         return 0;
     }
     showUsage(av[0]);
