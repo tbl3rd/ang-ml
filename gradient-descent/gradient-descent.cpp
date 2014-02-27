@@ -31,7 +31,7 @@ static void showUsage(const char *av0)
 class GradientDescent
 {
     const float itsAlpha;
-    const cv::Mat itsXs;
+    const cv::Mat itsX;
     const cv::Mat itsY;
     cv::Mat itsPriorTheta;
     cv::Mat itsTheta;
@@ -42,9 +42,11 @@ class GradientDescent
     void descend(void)
     {
         itsTheta.copyTo(itsPriorTheta);
-        const cv::Mat delta
-            = itsX.t() * (itsX * itsTheta - itsY) / itsY.rows;
-        itsTheta = itsTheta - (delta * itsAlpha);
+        cv::Mat delta = itsX.t();
+        delta *= itsX * itsTheta - itsY;
+        delta /= itsY.rows;
+        delta *= itsAlpha;
+        itsTheta -= delta;
         ++itsIterationCount;
     }
 

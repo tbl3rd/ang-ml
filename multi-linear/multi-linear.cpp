@@ -97,15 +97,16 @@ class GradientDescent
     cv::Mat itsStdDevInv;
     cv::Mat itsPriorTheta;
     cv::Mat itsTheta;
-    size_t itsIterationCount;
+    int itsIterationCount;
 
     // Update itsTheta by descending once along the steepest gradient.
     //
     void descend(void)
     {
         itsTheta.copyTo(itsPriorTheta);
-        const cv::Mat delta = itsX.t() * (itsX * itsTheta - itsY) / itsY.rows;
-        itsTheta = itsTheta - (delta * itsAlpha);
+        cv::Mat delta = itsX.t() * (itsX * itsTheta - itsY) / itsY.rows;
+        delta *= itsAlpha;
+        itsTheta -= delta;
         ++itsIterationCount;
     }
 
@@ -149,7 +150,7 @@ public:
     const cv::Mat theta(int n)
     {
         if (n > itsIterationCount) {
-            size_t rest = n - itsIterationCount;
+            int rest = n - itsIterationCount;
             while(rest--) descend();
         }
         return itsTheta;
@@ -178,7 +179,7 @@ public:
 
     // Return the number of iterations this has run.
     //
-    size_t count(void) { return itsIterationCount; }
+    int count(void) { return itsIterationCount; }
 
     // Initialize gradient descent with learning rate alpha, feature
     // vectors theXs and result vectors theYs.  Scale theXs and start with
