@@ -33,7 +33,7 @@ static void showUsage(const char *av0)
 
 // Solve a linear regression on data Y = X * THETA via the normal equation.
 //
-class NormalizedLinearRegression
+class NormalEquation
 {
     cv::Mat itsTheta;
     const cv::Mat itsX;
@@ -76,7 +76,7 @@ public:
         return itsTheta;
     }
 
-    NormalizedLinearRegression(const cv::Mat &theXs, const cv::Mat &theYs)
+    NormalEquation(const cv::Mat &theXs, const cv::Mat &theYs)
         : itsTheta()
         , itsX(makeItsX(theXs))
         , itsY(theYs.clone())
@@ -261,9 +261,9 @@ int main(int ac, const char *av[])
         float y; std::vector<float> yv; while (yis >> y) yv.push_back(y);
         cv::Mat_<float> theYs(yv), theXs(theYs.rows, 2, CV_32FC1);
         for (int i = 0; i < yv.size(); ++i) xis >> theXs(i, 0) >> theXs(i, 1);
-        NormalizedLinearRegression normal(theXs, theYs);
+        NormalEquation normal(theXs, theYs);
         std::cout << std::endl;
-        showResult(std::cout, "NormalizedLinearRegression", normal());
+        showResult(std::cout, "NormalEquation", normal());
         DUMP(main, testX);
         DUMP(main, normal.hypothesis(testX));
         for (float alpha = 0.1; alpha < 1.6; alpha += 0.1) {
