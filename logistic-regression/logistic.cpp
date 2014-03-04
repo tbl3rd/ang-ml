@@ -45,9 +45,9 @@ applyToRow(const T &m, T f(const T &))
 
 class LogisticalRegression
 {
-    cv::Mat itsTheta;
     const cv::Mat itsX;
     const cv::Mat itsY;
+    cv::Mat itsTheta;
 
     // Return a copy of x after shifting columns such that x(0) is 1.
     //
@@ -80,10 +80,11 @@ class LogisticalRegression
 public:
 
     LogisticalRegression(const cv::Mat &x, const cv::Mat &y)
-        : itsTheta(1 + x.cols, 1, y.type())
-        , itsX(makeItsX(x))
+        : itsX(makeItsX(x))
         , itsY(y.clone())
+        , itsTheta(cv::Mat::zeros(itsX.cols, 1, itsX.type()))
     {
+        DUMP(LogisticalRegression, itsTheta);
         DUMP(LogisticalRegression, cost(itsTheta, itsX, itsY));
     }
 };
