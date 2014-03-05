@@ -32,17 +32,6 @@ static void showUsage(const char *av0)
 }
 
 
-// Return the result of applying f to each row of m.
-//
-template <typename T> static T
-applyToRow(const T &m, T f(const T &))
-{
-    T result(m.size(), m.type());
-    for (int i = 0; i < m.rows; ++i) f(m.row(i)).copyTo(result.row(i));
-    return result;
-}
-
-
 class LogisticalRegression
 {
     const cv::Mat itsX;
@@ -58,8 +47,8 @@ class LogisticalRegression
         return result;
     }
 
-    // Return the logistical cost of the model theta applied to x compared
-    // to the expected y.
+    // Return the logistical cost J(theta) of the model theta applied to x
+    // compared to the expected y.
     //
     static float cost(const cv::Mat_<float> &theta,
                       const cv::Mat_<float> &x,
@@ -72,8 +61,43 @@ class LogisticalRegression
         cv::Mat notHyTheta = 1.0 - hyTheta;
         cv::log(hyTheta, hyTheta);
         cv::log(notHyTheta, notHyTheta);
-        double result = 0.0 - y.dot(hyTheta) - (1.0 - y).dot(notHyTheta);
-        result /= y.rows;
+        const cv::Mat notY = 1.0 - y;
+        double result = 0.0 - y.dot(hyTheta) - notY.dot(notHyTheta);
+        result /= x.rows;
+        return result;
+    }
+
+    // Return the gradient vector of J(theta).
+    //
+    static cv::Mat gradient(const cv::Mat_<float> &theta,
+                            const cv::Mat_<float> &x,
+                            const cv::Mat_<float> &y)
+    {
+        cv::Mat result = 0.0 - x * theta;
+        cv::exp(result, result);
+        result += 1.0;
+        cv::divide(1.0, result, result);
+        result -= y;
+        result = result.t() * x;
+        return result.t();
+    }
+
+    // Return the Hessian matrix for J(theta).
+    //
+    static cv::Mat hessian(const cv::Mat_<float> &theta,
+                           const cv::Mat_<float> &x)
+    {
+        static const cv::Mat noDelta;
+        static const bool mTm = false;
+        cv::Mat result = cv::Mat::zeros(theta.rows, theta.rows, theta.type());
+        for (int i = 0; i < x.rows; ++i) {
+            const cv::Mat xi = x.row(i).t();
+            const double hTheta = 1.0 / (1.0 + std::exp(0.0 - theta.dot(xi)));
+            const double scale = hTheta * (1.0 - hTheta);
+            const cv::Mat term(theta.rows, theta.rows, theta.type());
+            cv::mulTransposed(xi, term, mTm, noDelta, scale);
+            result += term;
+        }
         return result;
     }
 
@@ -86,6 +110,8 @@ public:
     {
         DUMP(LogisticalRegression, itsTheta);
         DUMP(LogisticalRegression, cost(itsTheta, itsX, itsY));
+        DUMP(LogisticalRegression, gradient(itsTheta, itsX, itsY));
+        DUMP(LogisticalRegression, hessian(itsTheta, itsX));
     }
 };
 
