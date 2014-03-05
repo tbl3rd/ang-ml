@@ -15,11 +15,6 @@
 #define DUMP(L, X) std::cerr << #L ": " #X " == " << X << std::endl;
 
 
-// A test vector representing a 1650 square foot, 3-bedroom house.
-//
-static const cv::Mat_<float> testX(cv::Vec2f(1650.0, 3.0));
-
-
 static void showUsage(const char *av0)
 {
     std::cout << av0 << ": Demonstrate multivariate linear regression."
@@ -49,6 +44,8 @@ class LogisticalRegression
 
     // Return the logistical cost J(theta) of the model theta applied to x
     // compared to the expected y.
+    //
+    // (Not related to the Jacobian, but we do use the gradient below.)
     //
     static float cost(const cv::Mat_<float> &theta,
                       const cv::Mat_<float> &x,
@@ -92,7 +89,8 @@ class LogisticalRegression
         cv::Mat result = cv::Mat::zeros(theta.rows, theta.rows, theta.type());
         for (int i = 0; i < x.rows; ++i) {
             const cv::Mat xi = x.row(i).t();
-            const double hTheta = 1.0 / (1.0 + std::exp(0.0 - theta.dot(xi)));
+            const double exponent = 0.0 - theta.dot(xi);
+            const double hTheta = 1.0 / (1.0 + std::exp(exponent));
             const double scale = hTheta * (1.0 - hTheta);
             const cv::Mat term(theta.rows, theta.rows, theta.type());
             cv::mulTransposed(xi, term, mTm, noDelta, scale);
