@@ -32,6 +32,8 @@ class LogisticalRegression
     const cv::Mat itsX;
     const cv::Mat itsY;
     cv::Mat itsTheta;
+    cv::Mat itsPriorTheta;
+    int itsIterationCount;
 
     // Return a copy of x after shifting columns such that x(0) is 1.
     //
@@ -47,9 +49,9 @@ class LogisticalRegression
     //
     // (Not related to the Jacobian, but we do use the gradient below.)
     //
-    static float cost(const cv::Mat_<float> &theta,
-                      const cv::Mat_<float> &x,
-                      const cv::Mat_<float> &y)
+    static float costTheta(const cv::Mat_<float> &theta,
+                           const cv::Mat_<float> &x,
+                           const cv::Mat_<float> &y)
     {
         cv::Mat hyTheta = 0.0 - x * theta;
         cv::exp(hyTheta, hyTheta);
@@ -64,7 +66,7 @@ class LogisticalRegression
         return result;
     }
 
-    // Return the gradient vector of J(theta).
+    // Return the gradient vector of costTheta(), J(theta).
     //
     static cv::Mat gradient(const cv::Mat_<float> &theta,
                             const cv::Mat_<float> &x,
@@ -79,7 +81,7 @@ class LogisticalRegression
         return result.t();
     }
 
-    // Return the Hessian matrix for J(theta).
+    // Return the Hessian matrix for cost(), J(theta).
     //
     static cv::Mat hessian(const cv::Mat_<float> &theta,
                            const cv::Mat_<float> &x)
@@ -99,7 +101,79 @@ class LogisticalRegression
         return result;
     }
 
+    // Return true iff all components of current and prior differ by less
+    // than epsilon.
+    //
+    static bool epsilonSatisfied(double epsilon,
+                                 const cv::Mat &current,
+                                 const cv::Mat &prior)
+    {
+        cv::Mat d; cv::absdiff(current, prior, d);
+        double maximumValue = 0.0;
+        cv::minMaxLoc(d, NULL, &maximumValue, NULL, NULL);
+        return maximumValue < epsilon;
+    }
+
+    void descend(void)
+    {
+        itsTheta.copyTo(itsPriorTheta);
+        const cv::Mat h = hessian(itsTheta, itsX);
+        const cv::Mat g = gradient(itsTheta, itsX, itsY);
+        itsTheta = h.inv() * g;
+        // DUMP(descend, h);
+        // DUMP(descend, g);
+        // DUMP(descend, itsTheta);
+    }
+
 public:
+
+    // Return the result of applying the current solution to x.
+    //
+    float hypothesis(const cv::Mat &x) {
+        const cv::Mat shifted = makeItsX(x.t());
+        const double exponent = 0.0 - itsTheta.dot(shifted);
+        const double result = 1.0 / (1.0 + std::exp(exponent));
+        return result;
+    }
+
+    float cost(void)
+    {
+        return costTheta(itsTheta, itsX, itsY);
+    }
+
+    // Return the theta resulting from n descents.
+    //
+    const cv::Mat theta(int n)
+    {
+        if (n > itsIterationCount) {
+            int rest = n - itsIterationCount;
+            while(rest--) descend();
+        }
+        return itsTheta;
+    }
+
+    // Return the Theta vector after meeting termination criteria tc.
+    //
+    const cv::Mat operator()(const cv::TermCriteria &tc)
+    {
+        const int useCount = tc.type & cv::TermCriteria::COUNT;
+        const int useEpsilon = tc.type & cv::TermCriteria::EPS;
+        if (useCount && useEpsilon) {
+            bool done = true;
+            do {
+                descend();
+                done = itsIterationCount >= tc.maxCount
+                    || epsilonSatisfied(tc.epsilon, itsTheta, itsPriorTheta);
+            } while (!done);
+        } else if (useEpsilon) {
+            do {
+                descend();
+            } while (!epsilonSatisfied(tc.epsilon, itsTheta, itsPriorTheta));
+        } else if (useCount) {
+            theta(tc.maxCount);
+        }
+        return itsTheta;
+    }
 
     LogisticalRegression(const cv::Mat &x, const cv::Mat &y)
         : itsX(makeItsX(x))
@@ -107,7 +181,7 @@ public:
         , itsTheta(cv::Mat::zeros(itsX.cols, 1, itsX.type()))
     {
         DUMP(LogisticalRegression, itsTheta);
-        DUMP(LogisticalRegression, cost(itsTheta, itsX, itsY));
+        DUMP(LogisticalRegression, costTheta(itsTheta, itsX, itsY));
         DUMP(LogisticalRegression, gradient(itsTheta, itsX, itsY));
         DUMP(LogisticalRegression, hessian(itsTheta, itsX));
     }
@@ -124,6 +198,14 @@ int main(int ac, const char *av[])
         DUMP(CxR, theYs.size());
         DUMP(CxR, theXs.size());
         LogisticalRegression lr(theXs, theYs);
+        std::cout << "N" << "    COST    " << "    THETA    " << std::endl;
+        std::cout << "-" << "  --------  " << "  ---------  " << std::endl;
+        for (int i = 0; i < 9; ++i) {
+            std::cout << i
+                      << "  " << lr.cost()
+                      << "  " << lr.theta(i)
+                      << std::endl;
+        }
         return 0;
     }
     showUsage(av[0]);
