@@ -27,6 +27,9 @@ static void showUsage(const char *av0)
 }
 
 
+// Run unscaled logistical regression to classify features x into discrete
+// y of either 0 or 1.
+//
 class LogisticalRegression
 {
     const cv::Mat itsX;
@@ -101,28 +104,14 @@ class LogisticalRegression
         return result;
     }
 
-    // Return true iff all components of current and prior differ by less
-    // than epsilon.
+    // Apply one iteration of Newton's method to the model.
     //
-    static bool epsilonSatisfied(double epsilon,
-                                 const cv::Mat &current,
-                                 const cv::Mat &prior)
-    {
-        cv::Mat d; cv::absdiff(current, prior, d);
-        double maximumValue = 0.0;
-        cv::minMaxLoc(d, NULL, &maximumValue, NULL, NULL);
-        return maximumValue < epsilon;
-    }
-
-    void descend(void)
+    void newton(void)
     {
         itsTheta.copyTo(itsPriorTheta);
         const cv::Mat h = hessian(itsTheta, itsX);
         const cv::Mat g = gradient(itsTheta, itsX, itsY);
-        itsTheta = h.inv() * g;
-        // DUMP(descend, h);
-        // DUMP(descend, g);
-        // DUMP(descend, itsTheta);
+        itsTheta = itsPriorTheta - h.inv() * g;
     }
 
 public:
@@ -136,10 +125,9 @@ public:
         return result;
     }
 
-    float cost(void)
-    {
-        return costTheta(itsTheta, itsX, itsY);
-    }
+    // Return the cost, J(theta), evaluated at the current theta vector.
+    //
+    float cost(void) { return costTheta(itsTheta, itsX, itsY); }
 
     // Return the theta resulting from n descents.
     //
@@ -147,9 +135,20 @@ public:
     {
         if (n > itsIterationCount) {
             int rest = n - itsIterationCount;
-            while(rest--) descend();
+            while (rest--) newton();
         }
         return itsTheta;
+    }
+
+    // Return the difference between the current value of theta and its
+    // prior value.
+    //
+    double epsilon(void)
+    {
+        cv::Mat d; cv::absdiff(itsTheta, itsPriorTheta, d);
+        double result = 0.0;
+        cv::minMaxLoc(d, NULL, &result, NULL, NULL);
+        return result;
     }
 
     // Return the Theta vector after meeting termination criteria tc.
@@ -161,14 +160,12 @@ public:
         if (useCount && useEpsilon) {
             bool done = true;
             do {
-                descend();
+                newton();
                 done = itsIterationCount >= tc.maxCount
-                    || epsilonSatisfied(tc.epsilon, itsTheta, itsPriorTheta);
+                    || epsilon() < tc.epsilon;
             } while (!done);
         } else if (useEpsilon) {
-            do {
-                descend();
-            } while (!epsilonSatisfied(tc.epsilon, itsTheta, itsPriorTheta));
+            do { newton(); } while (!epsilon() < tc.epsilon);
         } else if (useCount) {
             theta(tc.maxCount);
         }
@@ -179,6 +176,7 @@ public:
         : itsX(makeItsX(x))
         , itsY(y.clone())
         , itsTheta(cv::Mat::zeros(itsX.cols, 1, itsX.type()))
+        , itsPriorTheta(itsTheta.clone())
     {
         DUMP(LogisticalRegression, itsTheta);
         DUMP(LogisticalRegression, costTheta(itsTheta, itsX, itsY));
@@ -198,12 +196,22 @@ int main(int ac, const char *av[])
         DUMP(CxR, theYs.size());
         DUMP(CxR, theXs.size());
         LogisticalRegression lr(theXs, theYs);
-        std::cout << "N" << "    COST    " << "    THETA    " << std::endl;
-        std::cout << "-" << "  --------  " << "  ---------  " << std::endl;
+        std::cout << "N"
+                  << "    COST    "
+                  << "   EPSILON  "
+                  << "    THETA   "
+                  << std::endl;
+        std::cout << "-"
+                  << "  --------  "
+                  << "  --------  "
+                  << "  --------  "
+                  << std::endl;
         for (int i = 0; i < 9; ++i) {
+            const cv::Mat theta = lr.theta(i);
             std::cout << i
                       << "  " << lr.cost()
-                      << "  " << lr.theta(i)
+                      << "  " << lr.epsilon()
+                      << "  " << theta
                       << std::endl;
         }
         return 0;

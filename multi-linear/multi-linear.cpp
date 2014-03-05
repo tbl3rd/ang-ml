@@ -151,7 +151,7 @@ public:
     {
         if (n > itsIterationCount) {
             int rest = n - itsIterationCount;
-            while(rest--) descend();
+            while (rest--) descend();
         }
         return itsTheta;
     }
