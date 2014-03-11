@@ -64,7 +64,38 @@ public:
 };
 
 
-#define SHOW(X) std::fixed << std::setprecision(4) << std::setw(10) << X
+#define SHOW(X) std::fixed << std::setprecision(4) << std::setw(14) << X
+static void showResults(std::ostream &os, const cv::Mat &x, const cv::Mat &y)
+{
+    static const float lambda[] = { 0.0, 1.0, 10.0 };
+    static const int lambdaCount = sizeof lambda / sizeof lambda[0];
+    std::vector<cv::Mat> thetas;
+    os << std::endl << SHOW("RESULTS");
+    for (int i = 0; i < lambdaCount; ++i) {
+        std::stringstream label; label << "Lambda=" << lambda[i];
+        os << SHOW(label.str());
+        RegularizedNormalEquation rne(x, y, lambda[i]);
+        thetas.push_back(rne().clone());
+    }
+    os << std::endl << std::endl;
+    os << SHOW("L2 Norm");
+    for (int i = 0; i < lambdaCount; ++i) {
+        os << SHOW(cv::norm(thetas[i]));
+    }
+    os << std::endl << std::endl;
+    for (int i = 0; i < thetas[0].rows; ++i) {
+        std::stringstream label; label << "Theta" << i;
+        os << SHOW(label.str());
+        for (int j = 0; j < lambdaCount; ++j) {
+            os << SHOW(thetas[j].at<float>(i, 0));
+        }
+        os << std::endl;
+    }
+    os << std::endl;
+}
+#undef SHOW
+
+
 int main(int ac, const char *av[])
 {
     if (ac == 3) {
@@ -76,20 +107,9 @@ int main(int ac, const char *av[])
             float x; xis >> x;
             for (int n = 0; n < dim; ++n) theXs(i, n) = std::pow(x, n);
         }
-        static const float lambda[] = { 0.0, 1.0, 10.0 };
-        static const int lambdaCount = sizeof lambda / sizeof lambda[0];
-        std::cout << SHOW("Lambda") << SHOW("L2 Norm") << SHOW("Theta") << std::endl;
-        std::cout << SHOW("------") << SHOW("-------") << SHOW("-----") << std::endl;
-        for (int i = 0; i < lambdaCount; ++i) {
-            RegularizedNormalEquation rne(theXs, theYs, lambda[i]);
-            const cv::Mat theta = rne();
-            std::cout << SHOW(lambda[i]) << SHOW(cv::norm(theta))
-                      << "     " << theta << std::endl;
-        }
-        std::cout << std::endl;
+        showResults(std::cout, theXs, theYs);
         return 0;
     }
     showUsage(av[0]);
     return 1;
 }
-#undef SHOW
